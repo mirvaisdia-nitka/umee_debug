@@ -1,6 +1,8 @@
 package inflation
 
 import (
+	"fmt"
+
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
@@ -21,8 +23,12 @@ func (c Calculator) InflationRate(ctx sdk.Context, minter minttypes.Minter, mint
 	ugovKeeper := c.UgovKeeperB(&ctx)
 	inflationParams := ugovKeeper.InflationParams()
 	maxSupplyAmount := inflationParams.MaxSupply.Amount
-
 	stakingTokenSupply := c.MintKeeper.StakingTokenSupply(ctx)
+	fmt.Printf("InflationRate: \n stakingTokenSupply: %s\n, MaxSupplyAmount: %s", stakingTokenSupply, maxSupplyAmount)
+	fmt.Printf("inflationParams: %+v\n", inflationParams)
+	fmt.Printf("mintParams: %+v\n", mintParams)
+	fmt.Printf("AnnualProvisions: %s", minter.AnnualProvisions)
+	fmt.Printf("InflationRateChange%v\n", mintParams.InflationRateChange)
 	if stakingTokenSupply.GTE(maxSupplyAmount) {
 		// staking token supply is already reached the maximum amount, so inflation should be zero
 		return sdk.ZeroDec()
@@ -37,7 +43,6 @@ func (c Calculator) InflationRate(ctx sdk.Context, minter minttypes.Minter, mint
 		mintParams.InflationRateChange = fastInflationRateChange(mintParams)
 		err := c.MintKeeper.SetParams(ctx, mintParams)
 		util.Panic(err)
-
 		err = ugovKeeper.SetInflationCycleEnd(ctx.BlockTime().Add(inflationParams.InflationCycle))
 		util.Panic(err)
 		ctx.Logger().Info("inflation min and max rates are updated",
@@ -45,7 +50,7 @@ func (c Calculator) InflationRate(ctx sdk.Context, minter minttypes.Minter, mint
 			"inflation_cycle_end", ctx.BlockTime().Add(inflationParams.InflationCycle).String(),
 		)
 	}
-
+	fmt.Print("REACHS HERE")
 	minter.Inflation = minter.NextInflationRate(mintParams, bondedRatio)
 	return c.AdjustInflation(stakingTokenSupply, inflationParams.MaxSupply.Amount, minter, mintParams)
 }
@@ -65,7 +70,7 @@ func (c Calculator) AdjustInflation(stakingTokenSupply, maxSupply math.Int, mint
 	minter.AnnualProvisions = minter.NextAnnualProvisions(params, stakingTokenSupply)
 	newMintingAmount := minter.BlockProvision(params).Amount
 	newTotalSupply := stakingTokenSupply.Add(newMintingAmount)
-
+	fmt.Printf("newTotalSupply: %s, NewMintingAmount: %s, NextAnnualProvisions: %s", newTotalSupply, newMintingAmount, minter.AnnualProvisions)
 	if newTotalSupply.GT(maxSupply) {
 		newTotalSupply = maxSupply.Sub(stakingTokenSupply)
 		annualProvision := newTotalSupply.Mul(sdk.NewInt(int64(params.BlocksPerYear)))
